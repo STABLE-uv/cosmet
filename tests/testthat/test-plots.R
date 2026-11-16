@@ -1,0 +1,42 @@
+test_that("plots are built from the results", {
+  skip_if_not_installed("ggplot2")
+  skip_if_not_installed("patchwork")
+  d <- azoxy_macro(taxa = c("Chironomini", "Micronecta", "Caenidae", "Cloeon"))
+  tw <- test_control(d, method = "williams", n_sim = 9999)
+  noec <- derive_noec(tw, pre_times = -7)
+  prc <- fit_prc(d)
+  p1 <- plot_prc(prc, min_weight = 0.1)
+  expect_s3_class(p1, "patchwork")
+  p2 <- plot_noec(noec)
+  expect_s3_class(p2, "ggplot")
+  expect_s3_class(plot_noec(noec, selected = TRUE), "ggplot")
+  expect_s3_class(plot_timecourse(d, taxa = "Cloeon", show_replicates = TRUE), "ggplot")
+  expect_s3_class(plot_mdd(calc_mdd(tw)), "ggplot")
+  out <- withr::local_tempfile(fileext = ".png")
+  grDevices::png(out)
+  print(p1)
+  print(p2)
+  grDevices::dev.off()
+  expect_true(file.exists(out))
+})
+
+test_that("plot options are checked", {
+  skip_if_not_installed("ggplot2")
+  skip_if_not_installed("patchwork")
+  d <- azoxy_macro(taxa = c("Chironomini", "Micronecta"))
+  prc <- fit_prc(d)
+  expect_error(plot_prc(prc, min_weight = 100), "min_weight")
+  expect_error(plot_prc(prc, colours = c("red", "blue")), "one colour per treatment")
+  expect_s3_class(plot_prc(prc, colours = c("grey40", "#2c7fb8", "#41ab5d", "#d7301f"),
+                           labels = c("Control", "Low", "Mid", "High")), "patchwork")
+  expect_error(plot_timecourse(d), "taxa")
+  expect_error(plot_mdd(calc_mdd(test_control(d, method = "dunnett")), concentration = 5),
+               "must be one of")
+})
+
+test_that("plots explain how to install a missing package", {
+  local_mocked_bindings(is_installed = function(pkg) FALSE)
+  d <- azoxy_macro(taxa = c("Chironomini", "Micronecta"))
+  expect_error(plot_prc(fit_prc(d)), class = "cosmet_error_missing_package")
+  expect_error(plot_timecourse(d, taxa = "Chironomini"), "install.packages")
+})

@@ -1,0 +1,251 @@
+---
+title: "Analysing a mesocosm experiment with cosmet"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Analysing a mesocosm experiment with cosmet}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 8, fig.height = 4.5)
+has_plots <- requireNamespace("ggplot2", quietly = TRUE) &&
+  requireNamespace("patchwork", quietly = TRUE) &&
+  requireNamespace("viridisLite", quietly = TRUE)
+```
+
+This vignette goes through the classic analysis of an aquatic mesocosm
+experiment with a chemical: the effects on each population, summarised as
+no observed effect concentrations (NOEC) with their minimum detectable
+differences (MDD), and the effects on the community, with principal response
+curves (PRC). It points out every decision that changes the results and the
+argument that controls it.
+
+```{r}
+library(cosmet)
+```
+
+## The data
+
+`azoxy` holds the counts of the experiment of Amador et al. (2024): 24
+outdoor mesocosms with the communities of two habitats of the Albufera
+Natural Park, a eutrophic lake and a water spring, exposed to the fungicide
+azoxystrobin (controls and 2, 20 and 200 µg/L, applied on days 0 and 14,
+three mesocosms each), sampled 7 days before the first application and 7,
+21, 35 and 56 days after it. Each habitat is a separate experiment; here we
+use the macroinvertebrates of the eutrophic lake, counted as the individuals
+caught in two traps per mesocosm and date.
+
+```{r}
+macro <- subset(azoxy, community == "macroinvertebrates" & habitat == "eutrophic_lake")
+head(macro[macro$abundance > 0, ])
+```
+
+## A validated experiment
+
+`meso_data()` takes one row per mesocosm, time and taxon. The treatment here
+is the concentration itself; the control is the level `"0"`.
+
+```{r}
+d <- meso_data(
+  macro,
+  mesocosm_col = "tank", time_col = "day", treatment_col = "concentration",
+  concentration_col = "concentration", taxon_col = "taxon", value_col = "abundance",
+  control = "0", zero_fill = FALSE, unit = "individuals/sample",
+  concentration_unit = "µg/L", applications = c(0, 14)
+)
+d
+check_design(d)
+```
+
+`zero_fill` has no default because it is a decision about the data. These
+tables already have a zero for every taxon looked for and not found, so
+nothing needs filling. Tables that store only the taxa found need
+`zero_fill = TRUE`, and, if some sample had no taxa at all, the list of
+analysed samples in `samples`; a mesocosm that was not sampled is never
+filled with zeros. Recorded `NA` values stay unknown.
+
+## Which taxa can be evaluated
+
+`taxon_eligibility()` summarises each taxon in the controls only, so that a
+taxon is not discarded because it declined in the treatments.
+
+```{r}
+elig <- taxon_eligibility(d, min_control_mean = 3)
+elig[order(-elig$control_mean), c("taxon", "control_mean", "control_frequency", "eligible")][1:8, ]
+```
+
+The tests below use all taxa; `taxa = elig$taxon[elig$eligible]` would
+restrict them.
+
+## The scale of the analyses
+
+Counts are analysed as $\ln(A x + 1)$. Amador et al. (2024) used
+$A = 2$ for macroinvertebrates (33.3 for phytoplankton and 10 for
+zooplankton, also in `s11_thresholds`). The original counts stay in `value`.
+
+```{r}
+d <- transform_response(d, A = 2)
+```
+
+## Population effects: Williams' test
+
+`test_control()` compares every concentration with the control for each
+taxon and date. Williams' test assumes a monotonic response and starts at
+the highest concentration, stopping at the first non-significant one. Both
+directions are tested (`direction = "both"`, p-values doubled), at
+`alpha = 0.05`.
+
+```{r}
+tw <- test_control(d, method = "williams")
+tw
+```
+
+Two options of the step-down procedure give different NOECs. With
+`step_variance = "all"` (default) every step uses the variance and the
+isotonic means of all groups, as Williams (1971, 1972); with `"reduced"`,
+each step re-analyses the control and the doses up to the one tested, as
+the original analysis script of the authors. The null distribution of the
+statistic is simulated (`n_sim` draws) with a fixed seed, so results are
+reproducible; the global random number stream is not changed.
+
+## NOECs and consistent effects
+
+`derive_noec()` turns the tests into NOECs and LOECs. With
+`s11_criteria()` it also applies the four criteria of Text S11 of Amador et
+al. (2024) for a consistent, treatment-related effect: (a) a significant
+effect in a single direction; (b) enough abundance, here at least 3
+individuals per sample in the control mean for decreases; (c) means on the
+original scale that follow the direction of the effect; (d) no effect in
+the same direction before the application (`pre_times`).
+
+```{r}
+noec <- derive_noec(tw, pre_times = -7, criteria = s11_criteria("macroinvertebrates"))
+noec
+```
+
+The full table keeps every taxon and date with its status and criteria, so
+that every exclusion can be checked:
+
+```{r}
+res <- as.data.frame(noec)
+res[res$crit_a %in% TRUE, c("taxon", "time", "direction", "noec_label", "crit_b", "crit_c",
+                            "crit_d", "selected")]
+```
+
+`noec_table()` lays the NOECs out for a report (arrows mark the direction):
+
+```{r}
+noec_table(noec, selected = TRUE)
+```
+
+The thresholds of criterion b carry their units: those of phytoplankton are
+in cells/mL and are converted if the data are in cells/L; incompatible units
+are an error.
+
+```{r, eval = has_plots, fig.height = 6}
+plot_noec(noec, xlab = "Day")
+```
+
+Dunnett's test does not assume a monotonic response; a significant
+concentration with a non-significant one above it is flagged in the column
+`consistent`:
+
+```{r}
+td <- test_control(d, method = "dunnett")
+nd <- derive_noec(td, pre_times = -7)
+noec_table(nd, selected = TRUE)
+```
+
+## Minimum detectable differences
+
+A non-significant result is not proof that there is no effect.
+`calc_mdd()` gives the minimum detectable difference of the same test
+(Brock et al. 2015, eq. 2): the critical value times the standard error of
+the difference, back-transformed to a percentage of the control (eq. 5 and
+6) and classified (Table 1: class 0 above 100 %, class IV below 50 %).
+
+```{r}
+mdd <- calc_mdd(tw)
+mdd[mdd$concentration == 200 & mdd$time == 56 & !is.na(mdd$mdd_pct),
+    c("taxon", "control_value", "effect_pct", "mdd_pct", "mdd_class")]
+```
+
+This MDD has no power term: a true difference equal to it is detected about
+half of the time. The estimated effect and its interval (`difference`,
+`lower`, `upper`) are returned with it, because, as Mair et al. (2020)
+argue, the interval is the better guide to how large an undetected effect
+could be.
+
+```{r, eval = has_plots, fig.height = 6}
+plot_mdd(mdd, xlab = "Day")
+```
+
+## Community effects: principal response curves
+
+`fit_prc()` fits the PRC of van den Brink and ter Braak (1999) with
+`vegan::prc()`. The sign of the axis is arbitrary; by default it is set so
+that the highest concentration goes down.
+
+```{r}
+prc <- fit_prc(d)
+prc
+```
+
+`test_prc()` tests the first axis by permuting the complete time series of
+the mesocosms, and each date with a redundancy analysis:
+
+```{r}
+test_prc(prc, n_perm = 499)
+```
+
+```{r, eval = has_plots, fig.height = 5}
+plot_prc(prc, xlab = "Day")
+```
+
+Taxa with positive weights follow the curves (they decline where the curve
+goes down); taxa with negative weights go the opposite way.
+
+## Community NOECs
+
+`community_noec()` applies Williams' test to the scores of the first axis of
+a principal component analysis of each date, as Amador et al. (2024). The
+direction of a principal component is arbitrary, so the table shows no
+arrows.
+
+```{r}
+cn <- community_noec(d, pre_times = -7)
+noec_table(cn)
+cn$pca
+```
+
+## References
+
+Amador P, Vega C, Navarro Pacheco NI, Moratalla-López J, Palacios J,
+Crettaz Minaglia MC, López I, Díaz M, Rico A (2024). Effects of the
+fungicide azoxystrobin in two habitats representative of Mediterranean
+coastal wetlands: a mesocosm experiment. *Aquatic Toxicology* 267, 106828.
+<https://doi.org/10.1016/j.aquatox.2023.106828>
+
+Brock TCM, Hammers-Wirtz M, Hommen U, Preuss TG, Ratte H-T, Roessink I,
+Strauss T, Van den Brink PJ (2015). The minimum detectable difference (MDD)
+and the interpretation of treatment-related effects of pesticides in
+experimental ecosystems. *Environmental Science and Pollution Research* 22,
+1160–1174. <https://doi.org/10.1007/s11356-014-3398-2>
+
+Mair MM, Kattwinkel M, Jakoby O, Hartig F (2020). The minimum detectable
+difference (MDD) concept for establishing trust in nonsignificant results:
+a critical review. *Environmental Toxicology and Chemistry* 39, 2109–2123.
+<https://doi.org/10.1002/etc.4847>
+
+van den Brink PJ, ter Braak CJF (1999). Principal response curves: analysis
+of time-dependent multivariate responses of biological community to stress.
+*Environmental Toxicology and Chemistry* 18, 138–148.
+<https://doi.org/10.1002/etc.5620180207>
+
+Williams DA (1971). A test for differences between treatment means when
+several dose levels are compared with a zero dose control. *Biometrics* 27,
+103–117. <https://doi.org/10.2307/2528930>
+
+Williams DA (1972). The comparison of several dose levels with a zero dose
+control. *Biometrics* 28, 519–531. <https://doi.org/10.2307/2556164>

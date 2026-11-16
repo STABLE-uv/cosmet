@@ -1,0 +1,22 @@
+The code of cosmet is under the MIT licence (file LICENSE). The data in
+data/azoxy.rda come from another source, under its own licence.
+
+data/azoxy.rda (and the files in data-raw/azoxystrobin/ of the source
+repository)
+--------------------------------------------------------------------------
+
+Counts of phytoplankton, zooplankton and macroinvertebrates of the mesocosm
+experiment of:
+
+  Amador P, Vega C, Navarro Pacheco NI, Moratalla-Lopez J, Palacios J,
+  Crettaz Minaglia MC, Lopez I, Diaz M, Rico A (2024). Effects of the
+  fungicide azoxystrobin in two habitats representative of Mediterranean
+  coastal wetlands: a mesocosm experiment. Aquatic Toxicology 267, 106828.
+  https://doi.org/10.1016/j.aquatox.2023.106828
+
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0),
+https://creativecommons.org/licenses/by/4.0/. Cite the article above when
+you use these data.
+
+data/s11_thresholds.rda holds the abundance thresholds of Supplementary Text
+S11 and the factors of the transformation of the Methods of the same article.

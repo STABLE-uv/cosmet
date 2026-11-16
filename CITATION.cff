@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use cosmet, please cite it as below."
+type: software
+title: "cosmet: Analysis of Ecotoxicological Mesocosm Experiments"
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/STABLE-uv/cosmet"
+authors:
+  - family-names: "Amador Crespo"
+    given-names: "Pablo"
+    orcid: "https://orcid.org/0000-0002-3793-8794"
+  - family-names: "Rico"
+    given-names: "Andreu"
+    orcid: "https://orcid.org/0000-0002-1820-4218"
+abstract: >-
+  R package for the classic analysis of aquatic mesocosm and microcosm
+  experiments with chemicals: validation of the design, Williams' and
+  Dunnett's tests of every treatment against the control by taxon and
+  sampling date, no observed effect concentrations with criteria for
+  consistent effects, minimum detectable differences, and principal response
+  curves with their permutation tests.
+keywords:
+  - R
+  - ecotoxicology
+  - mesocosms
+  - NOEC
+  - principal response curves
+  - Williams test

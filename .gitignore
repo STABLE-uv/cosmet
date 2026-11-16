@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+*.Rcheck/
+*.tar.gz
+# The working notes of dev/ are kept in the development repository.
+dev/*
+!dev/usage_examples.R
+!dev/validation/
