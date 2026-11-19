@@ -13,7 +13,9 @@ fit_prc(x, taxa = NULL, scaling = "symmetric", orientation = "highest_down")
 
 \item{scaling}{Scaling of the coefficients and taxon weights, as in
 \code{\link[vegan:plot.cca]{vegan::scores.rda()}}: \code{"symmetric"} (default), \code{"sites"}, \code{"species"}
-or \code{"none"}. Only the relative size of coefficients and weights changes.}
+or \code{"none"}. The first three change only the relative size of
+coefficients and weights; \code{"none"} gives unscaled scores, whose product
+is not on the scale of the analysis.}
 
 \item{orientation}{\code{"highest_down"} (default) changes the sign of the axis,
 which is arbitrary, so that the coefficient of largest absolute value of
@@ -26,9 +28,10 @@ An object of class \code{meso_prc}, a list with
 \code{cdt = 0}), columns \code{treatment}, \code{concentration}, \code{time} and \code{cdt}, the
 PRC coefficient;
 \item \code{weights}: one row per taxon (C-locale order), columns \code{taxon} and
-\code{bk}, the taxon weight. The product \eqn{b_k c_{dt}} approximates the
-difference between treatment and control on the scale of the analyses;
-positive weights follow the curves, negative ones go the opposite way;
+\code{bk}, the taxon weight. The product \eqn{b_k c_{dt}} is the
+difference between treatment and control fitted by the first axis, on
+the scale of the analysis (except with \code{scaling = "none"}); positive
+weights follow the curves, negative ones go the opposite way;
 \item \code{variance}: a one-row data frame with the total variance, the
 variance explained by time and by treatment (main effect and
 interaction with time), as values and as \% of the total, the
@@ -48,7 +51,11 @@ its first axis, how each treatment departs from the control at each time.
 The model is \eqn{Y \sim treatment + treatment:time + Condition(time)},
 with the control as reference level (vegan uses treatment contrasts). The
 coefficients \eqn{c_{dt}} and weights \eqn{b_k} are those of
-\code{summary(model, scaling = scaling)}.
+\code{summary(model, scaling = scaling)}. 'vegan' 2.6-6 or later is needed:
+since that version the coefficients are scaled so that \eqn{b_k c_{dt}} is
+the fitted difference from the control, as in van den Brink and ter Braak
+(1999); earlier versions gave coefficients smaller by a constant factor
+(the weights do not change).
 }
 \section{Missing values and zeros}{
 

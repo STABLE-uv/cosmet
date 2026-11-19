@@ -75,7 +75,12 @@ test_that("the PRC reproduces the original script", {
   lev <- c("2" = "2", "3" = "20", "4" = "200")
   new <- prc$curves[match(paste(lev[as.character(r$Treatment)], r$Day),
                           paste(prc$curves$treatment, prc$curves$time)), ]
-  expect_equal(new$cdt, r$Cdt)
+  # The original script ran with vegan 2.6-4. Since vegan 2.6-6 the
+  # coefficients are larger by a constant factor (b_k c_dt is now the fitted
+  # difference from the control; see test-prc.R), so compare their shape.
+  ratio <- new$cdt / r$Cdt
+  expect_equal(ratio, rep(ratio[1], length(ratio)))
+  expect_gt(ratio[1], 0)
   expect_equal(prc$weights$bk[match(names(ref$bk), prc$weights$taxon)], unname(ref$bk))
   expect_equal(prc$variance$axis1_pct_total, ref$pct_total)
   expect_equal(prc$variance$axis1_pct_treatment, ref$pct_treat)

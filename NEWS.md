@@ -50,3 +50,10 @@ First version.
   into zeros (PRC): see `na_rm` and `zero_fill`.
 * The PRC uses an explicit scaling of the taxon weights (`"symmetric"`), which
   does not change with the default of `vegan::summary.prc()`.
+* The PRC needs 'vegan' 2.6-6 or later (and so R 4.1.0 or later). Since that
+  version, 'vegan' scales the PRC coefficients so that the product of weight
+  and coefficient is the difference from the control fitted by the first
+  axis, as van den Brink and ter Braak (1999) define it. The original script
+  ran with 'vegan' 2.6-4, which gave coefficients smaller by a constant factor
+  (0.30 for the macroinvertebrates of the eutrophic lake); the taxon weights,
+  the variance explained and the permutation tests do not change.

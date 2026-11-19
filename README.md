@@ -126,8 +126,10 @@ references.
   `test_control(step_variance =   "reduced")` and `derive_noec()` are
   identical to those of the original analysis script of the authors on
   its simulated data and on the azoxystrobin macroinvertebrates of both
-  habitats; the PRC coefficients, weights and permutation tests are
-  identical to those of the original PRC script.
+  habitats; the PRC weights, variance explained and permutation tests
+  are identical to those of the original PRC script, and its
+  coefficients differ by the constant factor that ‘vegan’ 2.6-6
+  introduced (see NEWS).
 - The simulated null distribution of Williams’ statistic agrees with the
   tables of Williams (1972) within Monte Carlo error; Dunnett’s
   probabilities agree with ‘mvtnorm’ and with nested numerical

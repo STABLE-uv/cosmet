@@ -13,6 +13,31 @@ test_that("fit_prc() returns the coefficients and weights of vegan::prc()", {
   expect_equal(v$time + v$treatment + v$residual, v$total)
 })
 
+test_that("b_k c_dt is the difference from the control fitted by the first axis", {
+  d <- azoxy_macro()
+  # The fitted first axis computed directly: changes over time removed,
+  # treatment x time fitted by least squares, rank-1 part of the fit.
+  m <- community_matrix(d, NULL)
+  tm <- factor(m$samples$time)
+  trt <- factor(m$samples$treatment, levels = d$settings$treatments)
+  z <- stats::model.matrix(~ tm - 1)
+  x <- stats::model.matrix(~ trt:tm - 1)
+  residual <- function(a) a - z %*% qr.solve(z, a)
+  fit <- qr.fitted(qr(residual(x)), residual(m$y))
+  s <- svd(fit)
+  rank1 <- s$d[1] * s$u[, 1, drop = FALSE] %*% t(s$v[, 1, drop = FALSE])
+  key <- paste(m$samples$treatment, m$samples$time)
+  means <- rowsum(rank1, key) / as.vector(table(key)[sort(unique(key))])
+  for (sc in c("symmetric", "sites", "species")) {
+    prc <- fit_prc(d, scaling = sc)
+    cur <- prc$curves[prc$curves$treatment != d$settings$control, ]
+    bk <- prc$weights$bk[match(colnames(m$y), prc$weights$taxon)]
+    effect <- means[paste(cur$treatment, cur$time), , drop = FALSE] -
+      means[paste(d$settings$control, cur$time), , drop = FALSE]
+    expect_equal(unname(outer(cur$cdt, bk)), unname(effect), tolerance = 1e-8)
+  }
+})
+
 test_that("the orientation puts the highest treatment downwards", {
   d <- azoxy_macro()
   up <- fit_prc(d, orientation = "none")

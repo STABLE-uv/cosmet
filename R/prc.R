@@ -9,7 +9,9 @@
 #' @param taxa `NULL` (default, all) or the taxa to include.
 #' @param scaling Scaling of the coefficients and taxon weights, as in
 #'   [vegan::scores.rda()]: `"symmetric"` (default), `"sites"`, `"species"`
-#'   or `"none"`. Only the relative size of coefficients and weights changes.
+#'   or `"none"`. The first three change only the relative size of
+#'   coefficients and weights; `"none"` gives unscaled scores, whose product
+#'   is not on the scale of the analysis.
 #' @param orientation `"highest_down"` (default) changes the sign of the axis,
 #'   which is arbitrary, so that the coefficient of largest absolute value of
 #'   the highest treatment is negative; `"none"` keeps the sign of vegan.
@@ -19,9 +21,10 @@
 #'     `cdt = 0`), columns `treatment`, `concentration`, `time` and `cdt`, the
 #'     PRC coefficient;
 #'   * `weights`: one row per taxon (C-locale order), columns `taxon` and
-#'     `bk`, the taxon weight. The product \eqn{b_k c_{dt}} approximates the
-#'     difference between treatment and control on the scale of the analyses;
-#'     positive weights follow the curves, negative ones go the opposite way;
+#'     `bk`, the taxon weight. The product \eqn{b_k c_{dt}} is the
+#'     difference between treatment and control fitted by the first axis, on
+#'     the scale of the analysis (except with `scaling = "none"`); positive
+#'     weights follow the curves, negative ones go the opposite way;
 #'   * `variance`: a one-row data frame with the total variance, the
 #'     variance explained by time and by treatment (main effect and
 #'     interaction with time), as values and as % of the total, the
@@ -34,7 +37,11 @@
 #' The model is \eqn{Y \sim treatment + treatment:time + Condition(time)},
 #' with the control as reference level (vegan uses treatment contrasts). The
 #' coefficients \eqn{c_{dt}} and weights \eqn{b_k} are those of
-#' `summary(model, scaling = scaling)`.
+#' `summary(model, scaling = scaling)`. 'vegan' 2.6-6 or later is needed:
+#' since that version the coefficients are scaled so that \eqn{b_k c_{dt}} is
+#' the fitted difference from the control, as in van den Brink and ter Braak
+#' (1999); earlier versions gave coefficients smaller by a constant factor
+#' (the weights do not change).
 #'
 #' @section Missing values and zeros:
 #' The analysis needs a complete table: an unknown value (`NA`) in any sample

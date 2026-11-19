@@ -29,14 +29,14 @@ Encoding: UTF-8
 Language: en-US
 Roxygen: list(markdown = TRUE)
 Depends:
-    R (>= 3.6.0)
+    R (>= 4.1.0)
 Imports:
     grDevices,
     permute,
     rlang,
     stats,
     utils,
-    vegan,
+    vegan (>= 2.6-6),
     withr
 Suggests:
     ggplot2 (>= 3.4.0),
