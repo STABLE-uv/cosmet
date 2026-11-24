@@ -1,6 +1,6 @@
 Package: cosmet
 Title: Analysis of Ecotoxicological Mesocosm Experiments
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R: c(
     person("Pablo", "Amador Crespo", email = "pamadorc@gmail.com",
            role = c("aut", "cre", "cph"),
@@ -18,11 +18,15 @@ Description: Analyses the data of aquatic mesocosm and microcosm experiments
     minimum detectable differences following Brock et al. (2015)
     <doi:10.1007/s11356-014-3398-2>, and fits and tests principal response
     curves (van den Brink and ter Braak 1999 <doi:10.1002/etc.5620180207>)
-    with 'vegan'. Includes the counts of the azoxystrobin mesocosm experiment
-    of Amador et al. (2024) <doi:10.1016/j.aquatox.2023.106828>.
+    with 'vegan'. For the measured exposure, fits first-order dissipation
+    after each application and computes time-weighted average
+    concentrations. Includes the counts and the measured concentrations of
+    the azoxystrobin mesocosm experiment of Amador et al. (2024)
+    <doi:10.1016/j.aquatox.2023.106828>.
 License: MIT + file LICENSE
-Copyright: See the file COPYRIGHTS for the data in data/azoxy.rda, which come
-    from Amador et al. (2024) under a CC BY 4.0 licence.
+Copyright: See the file COPYRIGHTS for the data in data/azoxy.rda and
+    data/azoxy_exposure.rda, which come from Amador et al. (2024) under a CC
+    BY 4.0 licence.
 URL: https://github.com/STABLE-uv/cosmet
 BugReports: https://github.com/STABLE-uv/cosmet/issues
 Encoding: UTF-8

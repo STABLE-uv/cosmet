@@ -45,3 +45,26 @@ test_that("print methods are stable", {
     print(derive_noec(tw, pre_times = -7, criteria = s11_criteria("macroinvertebrates")))
   })
 })
+
+test_that("the exposure workflow runs on the example data", {
+  expo <- subset(azoxy_exposure, habitat == "eutrophic_lake")
+  e <- meso_exposure(expo, control = "0", applications = c(0, 14),
+                     mesocosm_col = "mesocosm", time_col = "day",
+                     treatment_col = "concentration", concentration_col = "concentration",
+                     value_col = "azoxystrobin", timing_col = "timing", unit = "µg/L")
+  expect_identical(nrow(e$data), 63L)
+  dis <- fit_dissipation(e)
+  expect_identical(dis$estimates$status, rep("ok", 6))
+  # Slower dissipation after the second application in the three treatments
+  k <- matrix(dis$estimates$k, nrow = 2)
+  expect_true(all(k[2, ] < k[1, ]))
+  twa <- calc_twa(e, windows = c(7, 14, 21, 56))
+  expect_identical(twa$status, rep("ok", 12))
+  model <- calc_twa(e, windows = c(7, 14, 21, 56), method = "model", fit = dis)
+  expect_true(all(model$twa < twa$twa))
+  expect_identical(nrow(predict(dis, n = 11)), 6L * 11L)
+  cn <- compare_nominal(e)
+  expect_identical(cn$status, rep(c("no_before", "ok"), 3))
+  expect_true(all(cn$pct_nominal[cn$application == 2L] > 100))
+  expect_equal(twa$twa_pct_nominal, 100 * twa$twa / twa$concentration)
+})

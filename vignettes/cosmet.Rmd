@@ -18,8 +18,9 @@ This vignette goes through the classic analysis of an aquatic mesocosm
 experiment with a chemical: the effects on each population, summarised as
 no observed effect concentrations (NOEC) with their minimum detectable
 differences (MDD), and the effects on the community, with principal response
-curves (PRC). It points out every decision that changes the results and the
-argument that controls it.
+curves (PRC), and the measured exposure, with dissipation rates and
+time-weighted average concentrations. It points out every decision that
+changes the results and the argument that controls it.
 
 ```{r}
 library(cosmet)
@@ -219,6 +220,130 @@ noec_table(cn)
 cn$pca
 ```
 
+## The measured exposure
+
+The concentrations above are nominal. `azoxy_exposure` holds the
+azoxystrobin measured in the same mesocosms on days 0, 7, 14 (before and
+after the second application), 21 and 56. `meso_exposure()` validates them
+and assigns every sample to the application it follows; the column `timing`
+says which samples of day 14 were taken before the second application and
+which after it. Values reported as not detected or below 0.1 µg/L, and the
+lost sample, are `NA`: they are kept, marked as missing and never replaced.
+
+```{r}
+expo <- subset(azoxy_exposure, habitat == "eutrophic_lake")
+e <- meso_exposure(expo, control = "0", applications = c(0, 14),
+                   mesocosm_col = "mesocosm", time_col = "day",
+                   treatment_col = "concentration", concentration_col = "concentration",
+                   value_col = "azoxystrobin", timing_col = "timing", unit = "µg/L")
+e
+```
+
+`fit_dissipation()` fits first-order dissipation after each application. By
+default it regresses ln C on the time since the application, with one rate
+constant per application (`k_by = "period"`) and one fit per treatment
+(`by = "treatment"`). `method = "nonlinear"` fits the untransformed
+concentrations, as FOCUS (2014) recommends, and `k_by = "series"` one rate
+constant for both applications.
+
+```{r}
+dis <- fit_dissipation(e)
+dis
+```
+
+In this experiment the rate constant was lower after the second application
+in the three treatments; a single rate constant for both applications would
+hide it.
+
+`calc_twa()` gives time-weighted average concentrations over windows that
+start at the first application, from the measured concentrations
+(trapezoidal rule, with a jump at the second application) or from the fitted
+curves:
+
+```{r}
+twa <- calc_twa(e, windows = c(7, 14, 21, 56))
+twa_model <- calc_twa(e, windows = c(7, 14, 21, 56), method = "model", fit = dis)
+data.frame(twa[c("treatment", "window")], trapezoid = twa$twa, model = twa_model$twa)
+```
+
+When the concentration declines exponentially, the straight line between two
+samples lies above the curve, so the trapezoidal averages tend to be larger,
+more so over the 35 days between days 21 and 56.
+
+```{r, eval = has_plots, fig.height = 3.5}
+plot_exposure(e, fit = dis, xlab = "Day")
+```
+
+The dotted line marks the nominal concentration of each treatment.
+`compare_nominal()` compares the concentration measured right after each
+application with the nominal concentration that the application adds:
+
+```{r}
+cn <- compare_nominal(e)
+cn[c("treatment", "application", "before", "after", "pct_nominal", "pct_added", "status")]
+```
+
+After the first application the measured concentrations were, on average,
+98 % of the nominal ones (`pct_nominal`). After the second, they exceeded the
+nominal concentrations because of what remained of the first application,
+although the second application itself added less than its nominal
+concentration (`pct_added`, which needs the sample taken right before it;
+there is none before the first application). `fit_dissipation()` gives the
+fitted initial concentrations as a percentage of the nominal one
+(`c0_pct_nominal`), and `calc_twa()` the time-weighted averages
+(`twa_pct_nominal`, relative to the nominal concentration of the treatment).
+
+### A schedule for each treatment
+
+A single application is `applications = 0` (or its time). When the
+treatments differ in the number, the timing or the dose of the applications,
+`applications` takes a data frame with one row per treatment and
+application, with its time and the nominal concentration that it adds. In
+this simulated example, one treatment receives a single pulse of 20 µg/L and
+another four weekly pulses of 5 µg/L:
+
+```{r}
+schedule <- data.frame(treatment = c("single", rep("weekly", 4)),
+                       time = c(0, 0, 7, 14, 21), nominal = c(20, 5, 5, 5, 5))
+# Concentrations that add up the doses and halve every 7 days, with a
+# measurement error of about 5 %
+conc_at <- function(treatment, time) {
+  s <- schedule[schedule$treatment == treatment & schedule$time <= time, ]
+  sum(s$nominal * exp(-log(2) / 7 * (time - s$time)))
+}
+set.seed(1)
+pulses <- expand.grid(time = c(0, 3, 7, 10, 14, 17, 21, 24, 28),
+                      mesocosm = c("C1", "C2", "S1", "S2", "W1", "W2"),
+                      stringsAsFactors = FALSE)
+pulses$treatment <- c(C = "control", S = "single", W = "weekly")[substr(pulses$mesocosm, 1, 1)]
+pulses$nominal <- c(control = 0, single = 20, weekly = 5)[pulses$treatment]
+pulses$value <- mapply(conc_at, pulses$treatment, pulses$time) *
+  exp(rnorm(nrow(pulses), sd = 0.05))
+pulses$value[pulses$treatment == "control"] <- NA
+
+p <- meso_exposure(pulses, control = "control", applications = schedule,
+                   concentration_col = "nominal", unit = "µg/L")
+p
+dis_p <- fit_dissipation(p, k_by = "series")
+dis_p
+```
+
+Each treatment follows its own schedule: its periods, fits, windows (which
+start at its first application) and the dashed lines of the plot. The weekly
+pulses build up to almost twice the nominal concentration. Here the samples
+of the application days were taken after the applications, and none right
+before them, so the trapezoidal rule cannot interpolate up to each
+application and the time-weighted averages come from the fitted curves:
+
+```{r}
+calc_twa(p, windows = c(7, 28), method = "model", fit = dis_p)[
+  c("treatment", "window", "twa", "twa_pct_nominal", "status")]
+```
+
+```{r, eval = has_plots, fig.height = 3.5}
+plot_exposure(p, fit = dis_p, xlab = "Day")
+```
+
 ## References
 
 Amador P, Vega C, Navarro Pacheco NI, Moratalla-López J, Palacios J,
@@ -232,6 +357,12 @@ Strauss T, Van den Brink PJ (2015). The minimum detectable difference (MDD)
 and the interpretation of treatment-related effects of pesticides in
 experimental ecosystems. *Environmental Science and Pollution Research* 22,
 1160–1174. <https://doi.org/10.1007/s11356-014-3398-2>
+
+FOCUS (2014). *Generic guidance for estimating persistence and degradation
+kinetics from environmental fate studies on pesticides in EU registration*,
+version 1.1 (18 December 2014). Update of the report of the FOCUS Work Group
+on Degradation Kinetics, EC document reference Sanco/10058/2005 version 2.0
+(2006).
 
 Mair MM, Kattwinkel M, Jakoby O, Hartig F (2020). The minimum detectable
 difference (MDD) concept for establishing trust in nonsignificant results:

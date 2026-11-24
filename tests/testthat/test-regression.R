@@ -93,3 +93,42 @@ test_that("the PRC reproduces the original script", {
   expect_identical(bt$p_value, ref$per_date$p)
   expect_identical(round(100 * bt$r_squared, 1), ref$per_date$Var_expl_pct)
 })
+
+# Exposure: the original script (decay.R) of Amador et al. (2024).
+test_that("the exposure results differ from the original script only as documented", {
+  ref <- readRDS(test_path("fixtures", "original_exposure_azoxy.rds"))
+  for (h in c("eutrophic_lake", "water_spring")) {
+    e <- meso_exposure(azoxy_exposure[azoxy_exposure$habitat == h, ], control = "0",
+                       applications = c(0, 14), mesocosm_col = "mesocosm", time_col = "day",
+                       treatment_col = "concentration", concentration_col = "concentration",
+                       value_col = "azoxystrobin", timing_col = "timing")
+    twa <- calc_twa(e, windows = c(7, 14, 21, 56))
+    d <- e$data
+    for (trt in c("2", "20", "200")) {
+      m <- function(time, timing = NA) {
+        sel <- d$treatment == trt & d$time == time
+        if (!is.na(timing)) sel <- sel & d$timing %in% timing
+        mean(d$value[sel], na.rm = TRUE)
+      }
+      # The script put the sample taken before the second application on day
+      # 13 and ramped up to the one taken after it on day 14, which adds
+      # (mean after the application - mean on day 7) / 2 to the area of every
+      # window that includes day 14. The 7-day windows are identical.
+      t <- twa[twa$treatment == trt, ]
+      o <- ref$twac[ref$twac$habitat == h & ref$twac$concentration == as.numeric(trt), ]
+      extra <- ifelse(t$window >= 14, (m(14, "after") - m(7)) / 2 / t$window, 0)
+      expect_equal(t$twa + extra, o$twac, tolerance = 1e-10)
+      # Its rate constant: mean of the negative rates between consecutive means
+      means <- c(m(0), m(7), m(14, "before"), m(14, "after"), m(21), m(56))
+      rates <- diff(log(means)) / diff(c(0, 7, 13, 14, 21, 56))
+      k_ref <- ref$k$k[ref$k$habitat == h & ref$k$concentration == as.numeric(trt)]
+      expect_equal(-mean(rates[rates < 0]), k_ref, tolerance = 1e-10)
+    }
+    # The article: after the first application, 98 % of the nominal
+    # concentration in the eutrophic lake and 91 % in the water spring (mean of
+    # the three concentrations)
+    cn <- compare_nominal(e)
+    expect_identical(round(mean(cn$pct_nominal[cn$application == 1L])),
+                     c(eutrophic_lake = 98, water_spring = 91)[[h]])
+  }
+})

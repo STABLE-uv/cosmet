@@ -61,3 +61,42 @@ if (requireNamespace("ggplot2", quietly = TRUE) && requireNamespace("patchwork",
 }
 utils::write.csv(noec_table(noec), tmp <- tempfile(fileext = ".csv"), row.names = FALSE)
 unlink(tmp)
+
+# 6. Exposure: measured azoxystrobin in the same mesocosms. Dissipation rate
+#    constants and half-lives (log-linear regression, one k per application),
+#    time-weighted average concentrations and the plot of the series.
+expo <- subset(azoxy_exposure, habitat == "eutrophic_lake")
+e <- meso_exposure(
+  expo, control = "0", applications = c(0, 14),
+  mesocosm_col = "mesocosm", time_col = "day", treatment_col = "concentration",
+  concentration_col = "concentration", value_col = "azoxystrobin",
+  timing_col = "timing", unit = "\u00b5g/L"
+)
+e
+dis <- fit_dissipation(e)
+dis
+dis$estimates[c("treatment", "period", "k", "k_lower", "k_upper", "dt50")]
+calc_twa(e, windows = c(7, 14, 21, 56))
+calc_twa(e, windows = c(7, 14, 21, 56), method = "model", fit = dis)
+# Measured against nominal concentrations after each application
+compare_nominal(e)
+# A schedule for each treatment: one pulse of 20 against four weekly pulses of 5
+schedule <- data.frame(treatment = c("single", rep("weekly", 4)),
+                       time = c(0, 0, 7, 14, 21), nominal = c(20, 5, 5, 5, 5))
+pulses <- data.frame(
+  mesocosm = rep(c("C1", "S1", "S2", "W1", "W2"), each = 4),
+  treatment = rep(c("control", "single", "single", "weekly", "weekly"), each = 4),
+  time = rep(c(0, 3, 10, 24), 5),
+  value = c(rep(NA, 4), 19.1, 14.2, 7.6, 1.9, 20.6, 15.1, 7.1, 1.7,
+            4.8, 3.6, 5.7, 7.1, 5.1, 3.8, 5.3, 6.7)
+)
+p <- meso_exposure(pulses, control = "control", applications = schedule)
+fit_dissipation(p, k_by = "series")
+if (requireNamespace("ggplot2", quietly = TRUE) && requireNamespace("viridisLite", quietly = TRUE)) {
+  p4 <- plot_exposure(e, fit = dis)
+  out <- tempfile(fileext = ".pdf")
+  grDevices::pdf(out, width = 8, height = 6)
+  print(p4)
+  grDevices::dev.off()
+  unlink(out)
+}

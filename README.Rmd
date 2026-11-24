@@ -25,9 +25,12 @@ the classic way: it validates the design, compares every treatment with the
 control for each taxon and sampling date (Williams' or Dunnett's test),
 derives no observed effect concentrations (NOEC) with optional criteria for
 consistent effects, computes minimum detectable differences (MDD), and fits
-and tests principal response curves (PRC). Results are data frames that keep
-every intermediate decision (status of each taxon and date, criteria,
-critical values), and plots follow the usual figures of mesocosm studies.
+and tests principal response curves (PRC). For the measured exposure, it
+fits first-order dissipation after each application (rate constants, DT50,
+DT90) and computes time-weighted average concentrations. Results are data
+frames that keep every intermediate decision (status of each taxon and date,
+criteria, critical values), and plots follow the usual figures of mesocosm
+studies.
 
 ## Installation
 
@@ -76,6 +79,26 @@ test_prc(prc, n_perm = 499)
 plot_prc(prc, xlab = "Day")
 ```
 
+The measured azoxystrobin in the same mesocosms: dissipation after each
+application, time-weighted average concentrations and comparison with the
+nominal concentrations (`plot_exposure()` draws the series with the fitted
+curves).
+
+```{r exposure}
+expo <- subset(azoxy_exposure, habitat == "eutrophic_lake")
+e <- meso_exposure(
+  expo, control = "0", applications = c(0, 14),
+  mesocosm_col = "mesocosm", time_col = "day", treatment_col = "concentration",
+  concentration_col = "concentration", value_col = "azoxystrobin",
+  timing_col = "timing", unit = "µg/L"
+)
+dis <- fit_dissipation(e)
+dis
+twa <- calc_twa(e, windows = c(7, 14, 21, 56))
+twa[c("treatment", "window", "twa", "twa_pct_nominal", "status")]
+compare_nominal(e)[c("treatment", "application", "after", "pct_nominal", "pct_added")]
+```
+
 ## Methods and decisions
 
 | Step | Function | Method | Decisions (argument) |
@@ -86,6 +109,7 @@ plot_prc(prc, xlab = "Day")
 | NOEC | `derive_noec()` | LOEC and NOEC per taxon and date; criteria of consistent effects | `criteria` (`noec_criteria()`, `s11_criteria()`), `pre_times` |
 | MDD | `calc_mdd()` | Brock et al. (2015), eq. 2, 5 and 6, and their MDD classes | — |
 | Community | `fit_prc()`, `test_prc()`, `community_noec()` | PRC (van den Brink and ter Braak 1999) with 'vegan'; permutations of whole time series; Williams' test on the first principal component of each date | `scaling`, `orientation`, `n_perm`, `seed` |
+| Exposure | `meso_exposure()`, `fit_dissipation()`, `calc_twa()`, `compare_nominal()` | One or several applications, the same for all the treatments or a schedule for each; first-order dissipation after each application, by regression of ln C or nonlinear least squares (FOCUS 2014); time-weighted averages by the trapezoidal rule or the fitted curves; measured concentrations as a percentage of the nominal ones | `applications`, `method`, `k_by` (one rate constant per application or for all), `by`, `windows`, `start`, `lag` |
 
 The vignette (`vignette("cosmet")`) goes through the whole analysis and
 explains each decision; the help pages give the equations and references.
@@ -102,13 +126,18 @@ explains each decision; the help pages give the equations and references.
 - The simulated null distribution of Williams' statistic agrees with the
   tables of Williams (1972) within Monte Carlo error; Dunnett's probabilities
   agree with 'mvtnorm' and with nested numerical integration.
+- The time-weighted averages of `calc_twa()` are identical to those of the
+  original script for the 7-day windows; the longer windows differ by 0.4 %
+  to 3 % because the profile now jumps at the second application, and the
+  rate constants differ because the script averaged rates between sampling
+  days (see NEWS).
 - `R CMD check` runs on GitHub Actions on Linux, macOS and Windows (badge
-  above). The minimum R version (3.6.0) has not been tested.
+  above). The minimum R version (4.1.0) has not been tested.
 
 ## Data
 
-`azoxy` comes from Amador et al. (2024) under a CC BY 4.0 licence: cite the
-article when you use it.
+`azoxy` and `azoxy_exposure` come from Amador et al. (2024) under a CC BY
+4.0 licence: cite the article when you use them.
 
 Amador P, Vega C, Navarro Pacheco NI, Moratalla-López J, Palacios J,
 Crettaz Minaglia MC, López I, Díaz M, Rico A (2024). Effects of the

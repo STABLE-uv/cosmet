@@ -1,3 +1,53 @@
+# cosmet 0.1.0.9000
+
+## New features
+
+* Measured exposure. `meso_exposure()` validates the concentrations measured
+  in each mesocosm and assigns every sample to the application it follows;
+  samples taken on the day of an application are marked as taken before or
+  after it (`timing_col`). It takes a single application, several
+  applications at the same times in all the treatments, or a schedule for
+  each treatment with the nominal concentration of each application
+  (`applications` as a data frame).
+* `fit_dissipation()` fits first-order dissipation after each application,
+  by default as a regression of ln C on the time since the application with
+  one rate constant per application, and gives the rate constants with
+  their confidence intervals, the DT50 and the DT90. `method = "nonlinear"`
+  fits the untransformed concentrations (the recommendation of FOCUS 2014),
+  `k_by = "series"` one rate constant for all the applications and
+  `by = "mesocosm"` one fit per mesocosm. `predict()` gives the fitted
+  curves.
+* `calc_twa()` computes time-weighted average concentrations over windows
+  that start at the first application of each treatment, from the measured
+  concentrations (trapezoidal rule) or from the fitted curves, also as a
+  percentage of the nominal concentration (`twa_pct_nominal`).
+* `compare_nominal()` compares the concentration measured right after each
+  application with its nominal concentration (`pct_nominal`) and, with the
+  sample taken right before it, the increase it produced (`pct_added`).
+  `fit_dissipation()` gives the fitted initial concentrations as a
+  percentage of the nominal one (`c0_pct_nominal`).
+* `plot_exposure()` draws the measured concentrations over time, one panel
+  per treatment, with its applications, its nominal concentration and the
+  fitted curves (needs 'ggplot2').
+* `azoxy_exposure`: measured azoxystrobin of the experiment of Amador et al.
+  (2024).
+
+## Changes with respect to the original scripts
+
+* The article describes the dissipation rate constants as a regression of
+  the ln-transformed concentrations, but the original script averaged the
+  negative rates ln(C2 / C1) / (t2 - t1) between consecutive sampling days,
+  over both applications. `fit_dissipation()` fits the regression, one rate
+  constant per application. In the azoxystrobin data the dissipation slowed
+  down after the second application, most of all in the water spring (DT50
+  of 17 to 29 days after the first application and 40 to 43 days after the
+  second, against 21 to 31 days from the original script).
+* The original script placed the sample taken before the second application
+  on day 13, with a one-day ramp up to the sample taken after it on day 14.
+  `calc_twa()` keeps both on day 14, where the profile jumps. The 7-day
+  time-weighted averages are identical; those of 14 to 56 days are 0.4 % to
+  3.0 % lower.
+
 # cosmet 0.1.0
 
 First version.
